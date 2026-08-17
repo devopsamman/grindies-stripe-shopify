@@ -149,7 +149,7 @@ export default async function handler(req, res) {
           {
             kind: "SALE",
             status: "SUCCESS",
-            gateway: "Stripe TEST",
+            gateway: "Stripe",
             test: true,
 
             amountSet: {
