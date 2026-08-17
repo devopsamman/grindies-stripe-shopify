@@ -1,6 +1,7 @@
 export default async function handler(req, res) {
   try {
-    // Safety switch: the URL must explicitly contain ?run=true
+    // Safety switch
+    // The order will ONLY be created when ?run=true is present.
     if (req.query.run !== "true") {
       return res.status(400).json({
         success: false,
@@ -19,7 +20,7 @@ export default async function handler(req, res) {
       });
     }
 
-    // Your existing Grindies product variant
+    // Existing Grindies product variant
     const variantId =
       "gid://shopify/ProductVariant/45179315519558";
 
@@ -49,7 +50,7 @@ export default async function handler(req, res) {
       });
     }
 
-    // Create ONE clearly marked TEST order
+    // Shopify order creation mutation
     const mutation = `
       mutation orderCreate(
         $order: OrderCreateOrderInput!
@@ -59,21 +60,54 @@ export default async function handler(req, res) {
             field
             message
           }
+
           order {
             id
             name
             displayFinancialStatus
             displayFulfillmentStatus
+
             totalPriceSet {
               shopMoney {
                 amount
                 currencyCode
               }
             }
+
+            subtotalPriceSet {
+              shopMoney {
+                amount
+                currencyCode
+              }
+            }
+
+            transactions {
+              id
+              kind
+              status
+              test
+              gateway
+
+              amountSet {
+                shopMoney {
+                  amount
+                  currencyCode
+                }
+              }
+            }
+
             lineItems(first: 10) {
               nodes {
                 title
                 quantity
+
+                originalUnitPriceSet {
+                  shopMoney {
+                    amount
+                    currencyCode
+                  }
+                }
+
                 variant {
                   id
                 }
@@ -84,6 +118,7 @@ export default async function handler(req, res) {
       }
     `;
 
+    // Create a realistic TEST paid order
     const variables = {
       order: {
         lineItems: [
@@ -92,8 +127,12 @@ export default async function handler(req, res) {
             quantity: 1
           }
         ],
+
         email: "grindies-test@example.com",
-        note: "TEST ORDER - Stripe integration test - NO REAL PAYMENT",
+
+        note:
+          "TEST ORDER - Stripe integration test - NO REAL PAYMENT",
+
         customer: {
           toUpsert: {
             email: "grindies-test@example.com",
@@ -101,27 +140,50 @@ export default async function handler(req, res) {
             lastName: "Test"
           }
         },
-        financialStatus: "PAID"
+
+        // Mark the order as paid
+        financialStatus: "PAID",
+
+        // Create a TEST payment transaction for the full $29.99
+        transactions: [
+          {
+            kind: "SALE",
+            status: "SUCCESS",
+            gateway: "Stripe TEST",
+            test: true,
+
+            amountSet: {
+              shopMoney: {
+                amount: "29.99",
+                currencyCode: "USD"
+              }
+            }
+          }
+        ]
       }
     };
 
+    // Send order to Shopify
     const shopifyResponse = await fetch(
       `https://${shop}.myshopify.com/admin/api/2026-07/graphql.json`,
       {
         method: "POST",
+
         headers: {
           "Content-Type": "application/json",
           "X-Shopify-Access-Token": tokenData.access_token
         },
+
         body: JSON.stringify({
           query: mutation,
-          variables
+          variables: variables
         })
       }
     );
 
     const shopifyData = await shopifyResponse.json();
 
+    // GraphQL-level errors
     if (!shopifyResponse.ok || shopifyData.errors) {
       return res.status(500).json({
         success: false,
@@ -132,6 +194,7 @@ export default async function handler(req, res) {
 
     const result = shopifyData.data?.orderCreate;
 
+    // Shopify user errors
     if (result?.userErrors?.length > 0) {
       return res.status(400).json({
         success: false,
@@ -140,15 +203,21 @@ export default async function handler(req, res) {
       });
     }
 
+    // Success
     return res.status(200).json({
       success: true,
-      message: "TEST order created successfully!",
-      warning: "This is a fake Shopify order. No real payment was made.",
+
+      message:
+        "TEST order with $29.99 test transaction created successfully!",
+
+      warning:
+        "This is a fake Shopify test order. No real payment was made.",
+
       order: result.order
     });
 
   } catch (error) {
-    console.error(error);
+    console.error("Test order error:", error);
 
     return res.status(500).json({
       success: false,
