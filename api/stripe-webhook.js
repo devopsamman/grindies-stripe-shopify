@@ -47,7 +47,6 @@ async function verifyStripeSignature(rawBody, signature, secret) {
   const timestamp = timestampPart.slice(2);
   const timestampNumber = Number(timestamp);
 
-  // Reject old/replayed webhook requests (5 minutes).
   if (!Number.isFinite(timestampNumber)) return false;
   if (Math.abs(Math.floor(Date.now() / 1000) - timestampNumber) > 300) {
     return false;
@@ -199,7 +198,6 @@ export default async function handler(req, res) {
 
     const event = JSON.parse(rawBody);
 
-    // We only create Shopify orders for successfully completed Checkout sessions.
     if (event.type !== "checkout.session.completed") {
       return res.status(200).json({
         received: true,
@@ -217,7 +215,6 @@ export default async function handler(req, res) {
       });
     }
 
-    // Prevent accidental creation from an unpaid/incomplete session.
     if (session.payment_status !== "paid") {
       return res.status(200).json({
         received: true,
@@ -259,7 +256,6 @@ export default async function handler(req, res) {
       ? normalizeAddress(customerDetails.address, customerName, customerPhone)
       : undefined;
 
-    // Get the actual Stripe Checkout line items.
     const stripeItems = await getStripeLineItems(session.id, stripeSecret);
 
     if (stripeItems.length === 0) {
@@ -269,8 +265,6 @@ export default async function handler(req, res) {
       });
     }
 
-    // Current Grindies Shopify product variant used by the test Payment Link.
-    // Replace this only if the Payment Link should map to another Grindies variant.
     const grindiesVariantId =
       "gid://shopify/ProductVariant/45179315519558";
 
@@ -342,8 +336,6 @@ export default async function handler(req, res) {
       lineItems,
       email: customerEmail,
       phone: customerPhone,
-      note:
-        `STRIPE TEST ORDER - Payment Link - NO REAL PAYMENT. Stripe Checkout Session: ${session.id}`,
       customer: {
         toUpsert: {
           email: customerEmail,
