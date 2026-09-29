@@ -266,7 +266,7 @@ export default async function handler(req, res) {
     }
 
     const grindiesVariantId =
-      "gid://shopify/ProductVariant/45179315519558";
+      "gid://shopify/ProductVariant/47962204700849";
 
     const lineItems = stripeItems.map((item) => ({
       variantId: grindiesVariantId,
